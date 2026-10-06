@@ -45,18 +45,18 @@
 
 
 flowchart LR
-    U[用户<br/>表单 / 对话] -->|@Tool planTravel| P[TravelPlanningPipeline]
-    subgraph SEQ [顺序阶段]
-        P --> PA[PreferenceAgent<br/>确定性校验·不调LLM]
-        PA --> DA[DestinationAgent<br/>RAG 检索 + LLM 甄选]
+    U["用户<br/>表单 / 对话"] -->|@Tool planTravel| P["TravelPlanningPipeline"]
+    subgraph SEQ ["顺序阶段"]
+        P --> PA["PreferenceAgent<br/>确定性校验·不调LLM"]
+        PA --> DA["DestinationAgent<br/>RAG 检索 + LLM 甄选"]
     end
-    DA --> PE
-    subgraph LOOP [并行检索 + 预算闭环 · 最多 3 轮]
-        PE[ParallelExecutor<br/>CompletableFuture.allOf] --> FA[FlightAgent] & HA[HotelAgent] & AA[ActivityAgent]
-        FA & HA & AA --> BA[BudgetAgent<br/>BigDecimal 精确算账]
+    DA --> PE["ParallelExecutor"]
+    subgraph LOOP ["并行检索 + 预算闭环 · 最多 3 轮"]
+        PE --> FA["FlightAgent"] & HA["HotelAgent"] & AA["ActivityAgent"]
+        FA & HA & AA --> BA["BudgetAgent<br/>BigDecimal 精确算账"]
         BA -->|超支 → 压力等级+1 重新规划| PE
     end
-    BA --> DB[(MySQL<br/>plan_record + 轨迹)]
+    BA --> DB["MySQL<br/>plan_record + 轨迹"]
     BA -->|SSE| U
 
 
