@@ -23,13 +23,13 @@
 
 ## 📸 界面预览
 
-| 首页 · 玻璃拟态单页 | 手动规划 + 悬浮对话窗 |
-|---|---|
-| ![首页](docs/screenshots/home.png) | ![规划与对话](docs/screenshots/plan-and-chat.png) |
+![首页 · 玻璃拟态单页](docs/screenshots/home.png)
 
-| 历史会话切换 | 执行轨迹回放 |
-|---|---|
-| ![历史会话](docs/screenshots/chat-history.png) | ![执行轨迹](docs/screenshots/trace.png) |
+![手动规划 + 悬浮对话窗](docs/screenshots/plan-and-chat.png)
+
+![历史会话切换](docs/screenshots/chat-history.png)
+
+![执行轨迹回放](docs/screenshots/trace.png)
 
 ## ✨ 功能特性
 
@@ -45,19 +45,19 @@
 
 ```mermaid
 flowchart LR
-    U[用户<br/>表单 / 对话] -->|@Tool planTravel| P[TravelPlanningPipeline]
-    subgraph SEQ [顺序阶段]
-        P --> PA[PreferenceAgent<br/>确定性校验·不调LLM]
-        PA --> DA[DestinationAgent<br/>RAG 检索 + LLM 甄选]
+    U["用户<br/>表单 / 对话"] -->|"@Tool planTravel"| P["TravelPlanningPipeline"]
+    subgraph SEQ ["顺序阶段"]
+        P --> PA["PreferenceAgent<br/>确定性校验·不调LLM"]
+        PA --> DA["DestinationAgent<br/>RAG 检索 + LLM 甄选"]
     end
     DA --> PE
-    subgraph LOOP [并行检索 + 预算闭环 · 最多 3 轮]
-        PE[ParallelExecutor<br/>CompletableFuture.allOf] --> FA[FlightAgent] & HA[HotelAgent] & AA[ActivityAgent]
-        FA & HA & AA --> BA[BudgetAgent<br/>BigDecimal 精确算账]
-        BA -->|超支 → 压力等级+1 重新规划| PE
+    subgraph LOOP ["并行检索 + 预算闭环 · 最多 3 轮"]
+        PE["ParallelExecutor<br/>CompletableFuture.allOf"] --> FA["FlightAgent"] & HA["HotelAgent"] & AA["ActivityAgent"]
+        FA & HA & AA --> BA["BudgetAgent<br/>BigDecimal 精确算账"]
+        BA -->|"超支 → 压力等级+1 重新规划"| PE
     end
-    BA --> DB[(MySQL<br/>plan_record + 轨迹)]
-    BA -->|SSE| U
+    BA --> DB[("MySQL<br/>plan_record + 轨迹")]
+    BA -->|"SSE"| U
 ```
 
 | Agent | 调用 LLM | 职责与防护 |
