@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对话规划 · AI 旅游行程智能规划平台</title>
+<style>
+  :root {
+    --bg: #f5f6f7; --card: #ffffff; --side: #f9fafb; --line: #e5e8eb;
+    --ink: #1f2329; --ink2: #4e5969; --ink3: #86909c;
+    --green: #0a9e57; --green-deep: #077a43; --green-soft: #e8f7ef;
+    --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; display: flex; overflow: hidden; }
+
+  /* ===== 左侧：会话历史 ===== */
+  aside { width: 264px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  .brand { padding: 18px 16px 10px; font-weight: 700; font-size: 15px; }
+  .brand small { display: block; color: var(--ink3); font-weight: 400; font-size: 11.5px; margin-top: 3px; }
+  .newBtn { margin: 8px 14px 12px; padding: 10px; border: none; border-radius: 10px; background: var(--green); color: #fff; font-size: 14px; cursor: pointer; }
+  .newBtn:hover { background: var(--green-deep); }
+  .side-label { padding: 6px 16px; font-size: 12px; color: var(--ink3); }
+  .sess-list { flex: 1; overflow-y: auto; padding: 0 8px; }
+  .sess { position: relative; padding: 9px 26px 9px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+  .sess:hover { background: #eef0f2; }
+  .sess.active { background: var(--green-soft); }
+  .sess .tt { font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sess.active .tt { color: var(--green-deep); font-weight: 600; }
+  .sess .mt { font-size: 11px; color: var(--ink3); margin-top: 2px; display: flex; justify-content: space-between; }
+  .sess .del { position: absolute; right: 8px; top: 8px; display: none; width: 20px; height: 20px; line-height: 18px; text-align: center; border-radius: 6px; color: var(--ink3); font-size: 12px; }
+  .sess:hover .del { display: block; }
+  .sess .del:hover { background: #fdecec; color: #e5484d; }
+  .side-foot { border-top: 1px solid var(--line); padding: 10px 14px; }
+  .side-foot a, .side-foot button { text-align: left; border: none; background: none; color: var(--ink2); font-size: 13px; cursor: pointer; padding: 5px 2px; text-decoration: none; display: block; }
+  .side-foot a:hover, .side-foot button:hover { color: var(--green-deep); }
+
+  /* ===== 主区：居中窄栏 ===== */
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .col { width: 100%; max-width: 760px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .top { text-align: center; padding: 14px 0 4px; font-size: 12.5px; color: var(--ink3); }
+  #msgs { flex: 1; overflow-y: auto; padding: 18px 8px; display: flex; flex-direction: column; gap: 14px; }
+  .empty { margin: auto; text-align: center; }
+  .empty h1 { font-size: 24px; margin-bottom: 10px; }
+  .empty p { color: var(--ink2); font-size: 13.5px; line-height: 1.8; }
+  .row { display: flex; gap: 10px; align-items: flex-start; }
+  .row.user { flex-direction: row-reverse; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .avatar.bot { background: linear-gradient(135deg, #0a9e57, #067a41); }
+  .avatar.user { background: linear-gradient(135deg, #5b8def, #3a6fd8); }
+  .msg { max-width: 78%; padding: 11px 15px; border-radius: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: var(--green); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.bot.loading { color: var(--ink2); }
+  .dot { animation: blink 1.1s infinite; }
+  .dot:nth-child(2) { animation-delay: .2s; } .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 50% { opacity: .2; } }
+  form { width: 100%; max-width: 760px; margin: 0 auto 18px; display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+  input { flex: 1; border: none; font-size: 15px; font-family: var(--sans); background: none; }
+  input:focus { outline: none; }
+  button.send { padding: 9px 24px; border: none; border-radius: 10px; background: var(--green); color: #fff; font-size: 14px; cursor: pointer; }
+  button.send:disabled { opacity: .5; cursor: not-allowed; }
+  button.send:hover:not(:disabled) { background: var(--green-deep); }
+  /* Markdown 渲染样式 */
+  .msg.bot p { margin: 4px 0; }
+  .msg.bot h3, .msg.bot h4 { margin: 8px 0 4px; font-size: 15px; }
+  .msg.bot ul, .msg.bot ol { margin: 6px 0 6px 18px; }
+  .msg.bot li { margin: 3px 0; }
+  .msg.bot code { background: #f1f3f5; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+
+  /* ===== 执行轨迹（多智能体步骤实时点亮） ===== */
+  .trace { width: 78%; align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 9px 14px 6px; font-size: 13px; border-bottom-left-radius: 4px; }
+  .trace .thead { color: var(--ink3); font-size: 12px; cursor: pointer; user-select: none; padding-bottom: 5px; }
+  .trace .thead:hover { color: var(--ink2); }
+  .trace .thead::before { content: "▾ "; }
+  .trace.closed .thead { padding-bottom: 0; }
+  .trace.closed .thead::before { content: "▸ "; }
+  /* 步骤区固定高度约 5 行，内部滚动；始终自动滚到底部，可见的即最新 5 条 */
+  .trace .tbody { max-height: 270px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #cdd3d9 transparent; }
+  .trace .tbody::-webkit-scrollbar { width: 6px; }
+  .trace .tbody::-webkit-scrollbar-thumb { background: #d3d8dd; border-radius: 3px; }
+  .trace.closed .tbody { display: none; }
+  .tstep { display: flex; gap: 9px; align-items: baseline; padding: 4px 0; border-top: 1px dashed #f0f2f4; }
+  .tstep .ico { width: 15px; flex: none; text-align: center; font-size: 12px; color: var(--ink3); }
+  .tstep .tmain { flex: 1; min-width: 0; }
+  .tstep .nm { font-weight: 600; color: var(--ink); font-size: 12.5px; }
+  .tstep .dt { color: var(--ink2); display: block; font-size: 12px; line-height: 1.5; word-break: break-word; margin-top: 1px; }
+  .tstep .du { flex: none; color: var(--ink3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .tstep.done .ico { color: var(--green); font-weight: 700; }
+  .tstep.running .nm { color: var(--green-deep); }
+  .tstep.failed .ico, .tstep.failed .nm, .tstep.failed .dt { color: #e5484d; }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid #cfe8db; border-top-color: var(--green); border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -1px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">对话规划<small>会话记忆持久化在 MongoDB</small></div>
+  <button class="newBtn" id="newBtn">＋ 新会话</button>
+  <div class="side-label">会话历史</div>
+  <div class="sess-list" id="sessList"><div class="side-label">加载中…</div></div>
+  <div class="side-foot">
+    <a href="/">← 平台首页</a>
+    <a href="/app.html#/plans">← 行程规划</a>
+  </div>
+</aside>
+<main>
+  <div class="col">
+    <div class="top">当前会话：<span id="sidShort">—</span> · 规划记录在「行程规划」页按会话聚合</div>
+    <div id="msgs"></div>
+    <form id="chatForm">
+      <input id="input" placeholder="描述你的旅行需求，例如：从上海出发去有博物馆和美食的城市…" autocomplete="off" required>
+      <button class="send" id="sendBtn" type="submit">发送</button>
+    </form>
+  </div>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const msgs = $("msgs"), sessList = $("sessList");
+
+  let sid = localStorage.getItem("tp_session_id");
+  if (!sid) {
+    sid = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    localStorage.setItem("tp_session_id", sid);
+  }
+  $("sidShort").textContent = sid.slice(0, 8) + "…";
+
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function addMsg(role, text, loading) {
+    if ($(".empty")) $(".empty").remove();
+    const row = document.createElement("div");
+    row.className = "row " + (role === "user" ? "user" : "bot");
+    const avatar = document.createElement("div");
+    avatar.className = "avatar " + (role === "user" ? "user" : "bot");
+    avatar.textContent = role === "user" ? "旅" : "AI";
+    const div = document.createElement("div");
+    div.className = "msg " + (role === "user" ? "user" : "bot") + (loading ? " loading" : "");
+    div.innerHTML = loading ? '规划助理思考中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>' : "";
+    if (!loading) div.textContent = text;
+    row.appendChild(avatar); row.appendChild(div);
+    msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+  function setEmptyHint() {
+    if (msgs.children.length) return;
+    msgs.innerHTML = `<div class="empty"><h1>有什么我能帮你的吗？</h1>
+      <p>描述你的旅行需求即可，例如：<br>「从上海出发，两个人，5月1日到5日，预算一万五，<br>想去有博物馆和美食的城市文化游」<br><br>信息不全我会追问；说"预算改成 8000"即可凭记忆调整。</p></div>`;
+  }
+
+  async function loadMessages() {
+    msgs.innerHTML = "";
+    try {
+      const p = await (await fetch("/api/chat/" + encodeURIComponent(sid) + "/messages")).json();
+      const list = (p.messages || []).filter(m => m.role !== "system");
+      list.forEach(m => addMsg(m.role, m.content));
+    } catch (e) { /* 后端不可达时展示空态 */ }
+    setEmptyHint();
+  }
+
+  async function loadSessions() {
+    try {
+      const p = await (await fetch("/api/chat/sessions")).json();
+      const list = p.sessions || [];
+      sessList.innerHTML = list.length ? "" : '<div class="side-label">暂无历史会话</div>';
+      for (const s of list) {
+        const d = document.createElement("div");
+        d.className = "sess" + (s.sessionId === sid ? " active" : "");
+        const time = s.updatedAt ? s.updatedAt.slice(5, 16).replace("T", " ") : "";
+        d.innerHTML = `<div class="tt">${esc(s.title || s.sessionId.slice(0, 8))}</div>
+          <div class="mt"><span>${s.messageCount} 条消息</span><span>${esc(time)}</span></div>
+          <span class="del" title="删除会话">✕</span>`;
+        d.onclick = () => {
+          if (s.sessionId === sid) return;
+          sid = s.sessionId;
+          localStorage.setItem("tp_session_id", sid);
+          $("sidShort").textContent = sid.slice(0, 8) + "…";
+          loadSessions(); loadMessages();
+        };
+        d.querySelector(".del").onclick = async (ev) => {
+          ev.stopPropagation();
+          if (!confirm("删除会话「" + (s.title || s.sessionId.slice(0, 8)) + "」？\n该会话的全部对话记忆将从 MongoDB 中移除，规划记录不受影响。")) return;
+          await fetch("/api/chat/" + encodeURIComponent(s.sessionId), { method: "DELETE" });
+          if (s.sessionId === sid) { await loadMessages(); }
+          loadSessions();
+        };
+        sessList.appendChild(d);
+      }
+    } catch (e) { sessList.innerHTML = '<div class="side-label">会话列表加载失败</div>'; }
+  }
+
+  /* 轻量 Markdown 渲染（先转义防 XSS，再转换常用语法：标题/加粗/行内代码/列表） */
+  function mdToHtml(src) {
+    let h = esc(src);
+    h = h.replace(/^#{1,3} (.*)$/gm, "<h4>$1</h4>");
+    h = h.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    h = h.replace(/(?:^|\n)((?:[-*] .+(?:\n|$))+)/g, (m, b) =>
+      "\n<ul>" + b.trim().split("\n").map(l => "<li>" + l.replace(/^[-*] /, "") + "</li>").join("") + "</ul>");
+    h = h.replace(/(?:^|\n)((?:\d+[.、] .+(?:\n|$))+)/g, (m, b) =>
+      "\n<ol>" + b.trim().split("\n").map(l => "<li>" + l.replace(/^\d+[.、] /, "") + "</li>").join("") + "</ol>");
+    return h.split(/\n{2,}/).map(seg => /^\s*<(h4|ul|ol)/.test(seg) ? seg : "<p>" + seg.replace(/\n/g, "<br>") + "</p>").join("");
+  }
+
+  /* ---- 执行轨迹条：事件流 upsert（RUNNING 行原地更新为 DONE/FAILED，同 id 匹配） ---- */
+  function buildTraceBox(pendingRow) {
+    const box = document.createElement("div");
+    box.className = "trace";
+    box.innerHTML = '<div class="thead">执行轨迹 · 多智能体协作</div><div class="tbody"></div>';
+    msgs.insertBefore(box, pendingRow);
+    box.querySelector(".thead").onclick = () => {
+      box.classList.toggle("closed");
+      /* 重新展开时也定位到最新步骤 */
+      const body = box.querySelector(".tbody");
+      if (!box.classList.contains("closed")) body.scrollTop = body.scrollHeight;
+    };
+    return box;
+  }
+
+  function upsertTrace(box, rows, ev) {
+    if (!ev || !ev.id) return;
+    const body = box.querySelector(".tbody");
+    let row = rows.get(ev.id);
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "tstep";
+      row.innerHTML = '<span class="ico"></span><div class="tmain"><span class="nm"></span><span class="dt"></span></div><span class="du"></span>';
+      body.appendChild(row);
+      rows.set(ev.id, row);
+    }
+    const status = ev.status || "RUNNING";
+    row.className = "tstep " + status.toLowerCase();
+    row.querySelector(".ico").innerHTML =
+      status === "RUNNING" ? '<span class="spin"></span>' : (status === "FAILED" ? "✕" : "✓");
+    row.querySelector(".nm").textContent = ev.name || "";
+    row.querySelector(".dt").textContent = ev.detail || "";
+    row.querySelector(".du").textContent =
+      status === "RUNNING" ? "" : ((ev.durationMs || 0) / 1000).toFixed(1) + "s";
+    body.scrollTop = body.scrollHeight;  /* 窗口固定 5 行：始终滚动到底，可见的即最新步骤 */
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  $("chatForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const text = $("input").value.trim();
+    if (!text) return;
+    $("input").value = "";
+    addMsg("user", text);
+    const pending = addMsg("bot", "", true);
+    const pendingRow = pending.parentElement;
+    $("sendBtn").disabled = true;
+    let full = "", started = false, traceBox = null;
+    const traceRows = new Map();
+    /* 首个 token 或首个轨迹事件到达即清掉等待提示 */
+    const start = () => {
+      if (started) return;
+      started = true;
+      clearTimeout(hintTimer);
+      pending.classList.remove("loading");
+      pending.innerHTML = "";
+    };
+    /* 规划流水线阶段无 token，但会持续推送 trace 事件；8 秒兜底提示保留 */
+    const hintTimer = setTimeout(() => {
+      if (!started) pending.innerHTML = '正在处理：复杂需求会触发规划流水线（多智能体协作），最长约 2 分钟<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
+    }, 8000);
+    fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sid, message: text }) })
+      .then(async res => {
+        if (!res.ok || !res.body) {
+          const data = await res.json().catch(() => ({}));
+          clearTimeout(hintTimer);
+          pending.classList.remove("loading");
+          pending.textContent = "出错：" + (data.error || data.message || res.status);
+          return;
+        }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const frames = buf.split("\n\n");
+          buf = frames.pop();
+          for (const f of frames) {
+            /* 命名 SSE 事件：event=token/trace/done + data（Spring 写法无分隔空格，slice 取原文） */
+            let ev = "message", data = "";
+            for (const line of f.split("\n")) {
+              if (line.startsWith("event:")) ev = line.slice(6).trim();
+              else if (line.startsWith("data:")) data += (data ? "\n" : "") + line.slice(5);
+            }
+            if (ev === "done") { start(); continue; }
+            if (ev === "trace") {
+              start();
+              if (!traceBox) traceBox = buildTraceBox(pendingRow);
+              try { upsertTrace(traceBox, traceRows, JSON.parse(data)); } catch (err) { /* 忽略坏帧 */ }
+              continue;
+            }
+            if (!data) continue;
+            start();
+            full += data;
+            pending.innerHTML = mdToHtml(full);
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+        }
+        if (traceBox) {
+          /* 流结束自动折叠成一行摘要，点击标题可展开/收起（运行中保持展开以便实时观看） */
+          traceBox.classList.add("closed");
+          traceBox.querySelector(".thead").textContent =
+            "执行轨迹 · " + traceRows.size + " 步 · 已完成（点击展开/折叠）";
+        }
+        if (!started) { clearTimeout(hintTimer); pending.classList.remove("loading"); pending.textContent = "（空回复）"; }
+      })
+      .catch(() => { clearTimeout(hintTimer); pending.classList.remove("loading"); pending.textContent = "网络异常，请稍后重试。"; })
+      .finally(() => { clearTimeout(hintTimer); $("sendBtn").disabled = false; msgs.scrollTop = msgs.scrollHeight; });
+  });
+
+  $("newBtn").onclick = () => {
+    sid = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    localStorage.setItem("tp_session_id", sid);
+    $("sidShort").textContent = sid.slice(0, 8) + "…";
+    loadSessions(); loadMessages();
+  };
+
+  loadSessions(); loadMessages();
+})();
+</script>
+</body>
+</html>

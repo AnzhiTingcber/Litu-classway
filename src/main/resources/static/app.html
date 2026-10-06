@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 旅游行程智能规划平台</title>
+<style>
+  :root {
+    --bg: #f5f6f7;
+    --card: #ffffff;
+    --line: #e5e8eb;
+    --ink: #1f2329;
+    --ink2: #4e5969;
+    --ink3: #86909c;
+    --green: #16a34a;
+    --green-bg: #e8f7ee;
+    --green-line: #bfe6cd;
+    --blue: #2f6bdb;
+    --blue-bg: #eaf1fd;
+    --red: #e5484d;
+    --red-bg: #fdebec;
+    --gold: #d97706;
+    --radius: 8px;
+    --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.65; }
+  a { color: var(--blue); text-decoration: none; }
+  button { font-family: var(--sans); cursor: pointer; }
+  input, textarea, select { font-family: var(--sans); }
+
+  /* ===== 顶栏 ===== */
+  .topbar { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--line); height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+  .logo { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #1d4ed8, #16a34a); color: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 800; }
+  .nav { display: flex; gap: 6px; flex: 1; }
+  .nav a { padding: 17px 14px; color: var(--ink2); font-size: 14.5px; border-bottom: 2px solid transparent; line-height: 22px; }
+  .nav a.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+  .nav a:hover { color: var(--blue); }
+  .userchip { display: flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 13.5px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: grid; place-items: center; font-weight: 700; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 24px 80px; }
+  .pagetitle { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .pagesub { color: var(--ink3); font-size: 13px; margin-bottom: 20px; }
+
+  /* ===== 卡片 ===== */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+  .card-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .card-title::before { content: ""; width: 3px; height: 15px; background: var(--green); border-radius: 2px; align-self: center; }
+  .card-title b { font-size: 15px; }
+  .card-title span { color: var(--ink3); font-size: 12px; }
+  .card-desc { color: var(--ink3); font-size: 12.5px; margin-bottom: 14px; }
+
+  /* ===== 徽章 / 按钮 ===== */
+  .badge { display: inline-block; padding: 1px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; vertical-align: 2px; }
+  .badge.green { background: var(--green-bg); color: var(--green); }
+  .badge.blue { background: var(--blue-bg); color: var(--blue); }
+  .badge.red { background: var(--red-bg); color: var(--red); }
+  .badge.gray { background: #f2f3f5; color: var(--ink3); font-weight: 500; }
+  .btn { display: inline-block; padding: 7px 16px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink2); font-size: 13.5px; }
+  .btn:hover { color: var(--blue); border-color: var(--blue); }
+  .btn.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+  .btn.primary:hover { opacity: .92; color: #fff; }
+  .btn.blue { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn + .btn { margin-left: 10px; }
+
+  /* ===== 表单 ===== */
+  .form-row { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+  .form-row > label { width: 92px; flex: none; text-align: right; color: var(--ink2); font-size: 13.5px; padding-top: 7px; }
+  .form-row .ctl { flex: 1; }
+  .hint { color: var(--ink3); font-size: 12px; margin-top: 5px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: none; background: #fff; padding: 7px 18px; font-size: 13.5px; color: var(--ink2); border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: none; }
+  .seg button.active { background: var(--green); color: #fff; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 14px; font-size: 13.5px; color: var(--ink2); background: #fff; }
+  .chip input { accent-color: var(--green); }
+  .chip.on { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .ipt { width: 100%; max-width: 320px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+  .ipt:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+  textarea.ipt { max-width: 560px; resize: vertical; }
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .stepper button { width: 34px; height: 34px; border: none; background: #fff; font-size: 15px; color: var(--ink2); }
+  .stepper span { width: 46px; text-align: center; font-weight: 600; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+
+  /* ===== 表格 ===== */
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .tbl th { text-align: left; background: #f7f8fa; color: var(--ink2); font-weight: 600; padding: 9px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl td { padding: 10px 14px; border-bottom: 1px solid #f0f2f4; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .kv td:first-child { color: var(--ink3); width: 130px; }
+
+  /* ===== 大数字统计卡 ===== */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stat { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; background: #fcfcfd; }
+  .stat small { color: var(--ink3); font-size: 12px; display: block; }
+  .stat b { font-size: 26px; font-weight: 700; }
+  .stat b.blue { color: var(--blue); } .stat b.green { color: var(--green); } .stat b.red { color: var(--red); }
+  .stat em { font-style: normal; font-size: 13px; color: var(--ink3); margin-left: 2px; }
+  .stat .foot { color: var(--ink3); font-size: 11.5px; margin-top: 3px; }
+  @media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } }
+
+  /* ===== 进度条 ===== */
+  .bar { height: 10px; border-radius: 5px; background: #eef0f2; overflow: hidden; min-width: 160px; }
+  .bar i { display: block; height: 100%; background: var(--blue); border-radius: 5px; transition: width .8s; }
+  .bar.over i { background: var(--red); }
+
+  /* ===== Tabs ===== */
+  .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); background: #fff; padding: 0 22px; border-radius: var(--radius) var(--radius) 0 0; }
+  .tabs a { padding: 13px 2px; color: var(--ink2); border-bottom: 2px solid transparent; font-size: 14.5px; }
+  .tabs a.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+  .tabbody { background: #fff; border: 1px solid var(--line); border-top: none; border-radius: 0 0 var(--radius) var(--radius); padding: 20px 22px; }
+
+  /* ===== 流水线步骤 ===== */
+  .step { display: flex; gap: 14px; padding: 13px 4px; border-bottom: 1px dashed var(--line); align-items: flex-start; }
+  .step:last-child { border-bottom: none; }
+  .step .idx { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; flex: none; margin-top: 2px; }
+  .step.done .idx { background: var(--green-bg); color: var(--green); }
+  .step.run .idx { background: var(--blue-bg); color: var(--blue); animation: pulse 1.2s ease infinite; }
+  .step.wait .idx { background: #f2f3f5; color: var(--ink3); }
+  .step.failed .idx { background: #fdecec; color: #e5484d; }
+  .step.failed b, .step.failed .out { color: #e5484d; }
+  .step b { font-size: 14px; }
+  .step .sd { color: var(--ink3); font-size: 12.5px; }
+  .step .out { color: var(--ink2); font-size: 12.5px; margin-top: 3px; }
+  @keyframes pulse { 50% { opacity: .45; } }
+
+  /* ===== 目的地 / 航班 / 酒店 / 日程 ===== */
+  .dest-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .dest-city { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .quote { border-left: 3px solid var(--blue); background: var(--blue-bg); padding: 10px 14px; border-radius: 0 6px 6px 0; color: var(--ink2); font-size: 13.5px; margin-top: 12px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .tag { font-size: 12px; border: 1px solid var(--line); color: var(--ink2); border-radius: 4px; padding: 2px 10px; background: #fafbfc; }
+  .tag.g { border-color: var(--green-line); color: var(--green); background: var(--green-bg); }
+  .rec { border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 6px; padding: 12px 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #fcfdff; }
+  .rec .nm { font-weight: 700; font-size: 14.5px; }
+  .rec .mt { color: var(--ink3); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .rec .pr { margin-left: auto; text-align: right; font-family: var(--mono); }
+  .rec .pr b { font-size: 17px; color: var(--blue); }
+  .rec .pr small { display: block; color: var(--ink3); font-size: 11px; }
+  .ribbon { font-size: 11px; background: var(--green); color: #fff; border-radius: 4px; padding: 1px 8px; margin-left: 8px; vertical-align: 2px; }
+  .day { border-left: 2px solid var(--line); margin-left: 6px; padding: 2px 0 20px 18px; position: relative; }
+  .day::before { content: ""; position: absolute; left: -6px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid var(--blue); }
+  .day-h { font-weight: 700; font-size: 13.5px; }
+  .day-h small { color: var(--ink3); font-weight: 400; margin-left: 10px; font-family: var(--mono); }
+  .act { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; flex-wrap: wrap; }
+  .slot { font-size: 11px; border-radius: 4px; padding: 1px 8px; flex: none; }
+  .slot.am { background: #fdf3e0; color: var(--gold); }
+  .slot.pm { background: var(--blue-bg); color: var(--blue); }
+  .slot.ev { background: #efeafd; color: #6d4fd0; }
+  .act b { font-size: 13.5px; }
+  .act .cat { color: var(--ink3); font-size: 12px; }
+  .act .price { margin-left: auto; font-family: var(--mono); font-size: 12.5px; color: var(--ink2); }
+  .act .price.free { color: var(--green); }
+
+  /* ===== 管理端 ===== */
+  .admin { display: grid; grid-template-columns: 208px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .admin { grid-template-columns: 1fr; } }
+  .side { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 0; position: sticky; top: 72px; }
+  .side .grp { color: var(--ink3); font-size: 11.5px; letter-spacing: .1em; padding: 12px 18px 5px; }
+  .side a { display: flex; align-items: center; gap: 9px; padding: 9px 18px; color: var(--ink2); font-size: 13.5px; border-left: 2px solid transparent; }
+  .side a.active { color: var(--green); background: var(--green-bg); border-left-color: var(--green); font-weight: 600; }
+  .side a.lock { color: #b6bcc5; pointer-events: none; }
+  .side a:hover:not(.lock) { color: var(--green); }
+  .cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .acard { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: #fff; display: block; color: var(--ink); }
+  .acard:hover { border-color: var(--green); box-shadow: 0 2px 10px rgba(22,163,74,.08); }
+  .acard.lock { opacity: .55; }
+  .acard .ic { width: 34px; height: 34px; border-radius: 8px; background: var(--green-bg); color: var(--green); display: grid; place-items: center; margin-bottom: 10px; }
+  .acard b { display: block; font-size: 14px; margin-bottom: 3px; }
+  .acard p { color: var(--ink3); font-size: 12px; line-height: 1.55; }
+  .acard .locktip { color: #b6bcc5; font-size: 11px; margin-top: 8px; }
+
+  .banner { border-radius: var(--radius); padding: 10px 16px; font-size: 13px; margin-bottom: 14px; }
+  .banner.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-line); }
+  .banner.gray { background: #f2f3f5; color: var(--ink2); border: 1px solid var(--line); }
+
+  .empty { text-align: center; color: var(--ink3); padding: 50px 0; }
+  .muted { color: var(--ink3); }
+  .mono { font-family: var(--mono); }
+  .right { text-align: right; }
+  .mt0 { margin-top: 0; } .mb10 { margin-bottom: 10px; }
+  svg.ic { width: 17px; height: 17px; vertical-align: -3px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" onclick="location.hash='#/plans'" style="cursor:pointer">
+    <span class="logo">旅</span> AI 旅游行程智能规划平台
+  </div>
+  <nav class="nav" id="mainNav">
+    <a href="/">首页</a>
+    <a href="/chat.html">对话规划</a>
+    <a href="#/prefer" data-route="prefer">手动规划</a>
+    <a href="#/plans" data-route="plans">行程规划</a>
+    <a href="#/admin" data-route="admin">管理端</a>
+  </nav>
+  <div class="userchip"><span class="avatar">旅</span> 旅行者</div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<script>
+(() => {
+  const $app = document.getElementById("app");
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmt = n => "¥" + Number(n || 0).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+  const STYLE_CN = { RELAXED: "休闲", CULTURE: "文化", ADVENTURE: "探险", LUXURY: "奢华", BUDGET_FRIENDLY: "高性价比" };
+  const hours = d => (d || "").replace(/(\d+)h(\d+)m/, (_, h, m) => h + "小时" + (m && m !== "00" ? +m + "分" : "")) || d || "";
+
+  /* ---------- 会话 ID（localStorage 持久，表单/对话两个入口共用） ---------- */
+  const getSessionId = () => {
+    let sid = localStorage.getItem("tp_session_id");
+    if (!sid) {
+      sid = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      localStorage.setItem("tp_session_id", sid);
+    }
+    return sid;
+  };
+
+  /* ---------- 服务端规划历史同步（MySQL）：聚合全部会话的记录合并进本地存档；
+               后端已删除的记录（如对话里删除）同步时从本地一并移除 ---------- */
+  async function syncFromServer() {
+    try {
+      const res = await fetch("/api/plans");
+      if (!res.ok) return;
+      const payload = await res.json();
+      const records = payload.records || [];
+      const serverIds = new Set(records.map(r => "srv-" + r.id));
+      for (const r of records) {
+        if (store.get("srv-" + r.id)) continue;
+        /* 本地表单记录已关联同一 MySQL 行的，不重复建档 */
+        if (store.all().some(p => p.planRecordId === r.id)) continue;
+        let prefs = {};
+        try { prefs = JSON.parse(r.inputJson || "{}"); } catch (e) {}
+        prefs = Object.assign({ budget: 0, departureCity: "", startDate: "", endDate: "", travelers: 1, style: "CULTURE", interests: [] }, prefs);
+        store.upsert({
+          id: "srv-" + r.id, planRecordId: r.id, source: r.source, sessionId: r.sessionId, prefs,
+          status: String(r.status || "").toLowerCase() === "complete" ? "done" : "failed",
+          data: null, resultJsonId: r.id, httpStatus: 200
+        });
+      }
+      /* 清理：本地记录指向的 MySQL 行已不存在（对话删除/他端删除）→ 本地一并移除 */
+      store.save(store.all().filter(p =>
+        p.id.startsWith("srv-") ? serverIds.has(p.id)
+        : p.planRecordId ? serverIds.has("srv-" + p.planRecordId)
+        : true));
+      if (location.hash.startsWith("#/plans")) viewPlans();
+    } catch (e) { /* 后端不可达时静默，继续用本地存档 */ }
+  }
+
+  /* ---------- 会话内行程存档 ---------- */
+  const store = {
+    all() { return JSON.parse(sessionStorage.getItem("tp_plans") || "[]"); },
+    save(list) { sessionStorage.setItem("tp_plans", JSON.stringify(list)); },
+    get(id) { return this.all().find(p => p.id === id); },
+    upsert(plan) { const l = this.all(); const i = l.findIndex(p => p.id === plan.id); i >= 0 ? l[i] = plan : l.unshift(plan); this.save(l); }
+  };
+  const runs = new Map(); // 进行中的请求（页面刷新即中断）
+
+  /* ---------- 路由 ---------- */
+  const routes = [
+    { re: /^#\/prefer$/, view: viewPrefer, nav: "prefer" },
+    { re: /^#\/plans$/, view: viewPlans, nav: "plans" },
+    { re: /^#\/plan\/(.+)$/, view: viewPlan, nav: "plans" },
+    { re: /^#\/admin$/, view: viewAdminHome, nav: "admin" },
+    { re: /^#\/admin\/knowledge$/, view: viewAdminKnowledge, nav: "admin" },
+    { re: /^#\/admin\/status$/, view: viewAdminStatus, nav: "admin" }
+  ];
+  function router() {
+    const hash = location.hash || "#/plans";
+    if (window._runTimer) { clearInterval(window._runTimer); window._runTimer = null; }
+    syncFromServer();
+    for (const r of routes) {
+      const m = hash.match(r.re);
+      if (m) {
+        document.querySelectorAll("#mainNav a").forEach(a => a.classList.toggle("active", a.dataset.route === r.nav));
+        r.view(m[1]);
+        return;
+      }
+    }
+    location.hash = "#/plans";
+  }
+  addEventListener("hashchange", router);
+
+  /* ================= 我的偏好 ================= */
+  const state = { style: "CULTURE", travelers: 2, interests: new Set(["美食", "博物馆"]) };
+  function viewPrefer() {
+    /* 默认日期动态计算：出发默认今天，返回默认 4 天后（5 天行程）。
+       按本地时区取日期（toISOString 是 UTC，东八区 0~8 点会差一天） */
+    const iso = d => d.getFullYear() + "-"
+        + String(d.getMonth() + 1).padStart(2, "0") + "-"
+        + String(d.getDate()).padStart(2, "0");
+    const defStart = iso(new Date());
+    const defEnd = iso(new Date(Date.now() + 4 * 86400000));
+    $app.innerHTML = `
+      <div class="pagetitle">我的旅行偏好</div>
+      <div class="pagesub">发起行程规划时，按这份偏好做候选城市的第一轮筛选，一次画像管所有规划。</div>
+      <form id="preferForm">
+        <div class="card">
+          <div class="card-title"><b>预算与行程</b><span>决定目的地投什么档位、玩多少天</span></div>
+          <div class="form-row"><label>出发城市</label><div class="ctl"><input class="ipt" id="fCity" value="上海" required></div></div>
+          <div class="form-row"><label>出行日期</label><div class="ctl" style="display:flex;gap:12px">
+            <input class="ipt" type="date" id="fStart" value="${defStart}" required style="max-width:180px">
+            <input class="ipt" type="date" id="fEnd" value="${defEnd}" required style="max-width:180px"></div></div>
+          <div class="form-row"><label>预算上限</label><div class="ctl">
+            <input class="ipt" type="number" id="fBudget" value="15000" min="1" step="any" required style="max-width:180px">
+            <div class="hint">元，全部花费（交通+住宿+活动）的总闸</div></div></div>
+          <div class="form-row"><label>出行人数</label><div class="ctl">
+            <span class="stepper"><button type="button" id="fMinus">−</button><span id="fPax">2</span><button type="button" id="fPlus">＋</button></span></div></div>
+          <div class="form-row" style="margin-bottom:2px"><label>旅行风格</label><div class="ctl">
+            <div class="seg" id="fStyle">
+              <button type="button" data-v="RELAXED">休闲</button>
+              <button type="button" data-v="CULTURE" class="active">文化</button>
+              <button type="button" data-v="ADVENTURE">探险</button>
+              <button type="button" data-v="LUXURY">奢华</button>
+              <button type="button" data-v="BUDGET_FRIENDLY">高性价比</button>
+            </div>
+            <div class="hint">风格决定 RAG 检索的候选城市画像与活动档位</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><b>同行与兴趣</b><span>勾选的兴趣会参与候选城市语义检索与活动编排</span></div>
+          <div class="form-row"><label>兴趣标签</label><div class="ctl">
+            <div class="chips" id="fChips"></div>
+            <div class="hint">兴趣将与城市知识库做向量匹配，命中的城市进入候选池</div></div></div>
+        </div>
+        <div style="padding-left:108px"><button class="btn primary" id="fSubmit" style="padding:10px 34px">发起智能规划</button>
+        <span class="hint" style="margin-left:12px">五个智能体接力，约 40~150 秒</span></div>
+      </form>`;
+    const allTags = ["美食", "博物馆", "购物", "历史古迹", "自然风光", "夜生活", "亲子", "摄影"];
+    document.getElementById("fChips").innerHTML = allTags.map(t =>
+      `<label class="chip ${state.interests.has(t) ? "on" : ""}"><input type="checkbox" value="${t}" ${state.interests.has(t) ? "checked" : ""}>${t}</label>`).join("");
+    document.querySelectorAll("#fChips input").forEach(cb => cb.onchange = () => {
+      cb.checked ? state.interests.add(cb.value) : state.interests.delete(cb.value);
+      cb.closest(".chip").classList.toggle("on", cb.checked);
+    });
+    document.querySelectorAll("#fStyle button").forEach(b => b.onclick = () => {
+      document.querySelectorAll("#fStyle button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active"); state.style = b.dataset.v;
+    });
+    /* 首页搜索栏跳转过来的预填（出发城市/日期/人数），读一次即清除 */
+    try {
+      const pre = JSON.parse(localStorage.getItem("tp_prefill") || "null");
+      if (pre) {
+        localStorage.removeItem("tp_prefill");
+        if (pre.departureCity) document.getElementById("fCity").value = pre.departureCity;
+        if (pre.startDate) document.getElementById("fStart").value = pre.startDate;
+        if (pre.endDate) document.getElementById("fEnd").value = pre.endDate;
+        if (pre.travelers) {
+          state.travelers = Math.max(1, Math.min(9, pre.travelers));
+          document.getElementById("fPax").textContent = state.travelers;
+        }
+      }
+    } catch (e) { /* 无预填或格式坏则用默认值 */ }
+    document.getElementById("fMinus").onclick = () => { state.travelers = Math.max(1, state.travelers - 1); document.getElementById("fPax").textContent = state.travelers; };
+    document.getElementById("fPlus").onclick = () => { state.travelers = Math.min(9, state.travelers + 1); document.getElementById("fPax").textContent = state.travelers; };
+    document.getElementById("preferForm").onsubmit = e => {
+      e.preventDefault();
+      const prefs = {
+        budget: Number(document.getElementById("fBudget").value),
+        style: state.style,
+        startDate: document.getElementById("fStart").value,
+        endDate: document.getElementById("fEnd").value,
+        departureCity: document.getElementById("fCity").value.trim(),
+        travelers: state.travelers,
+        interests: [...state.interests]
+      };
+      const id = "P" + Date.now();
+      const plan = { id, createdAt: new Date().toISOString(), status: "running", prefs, sessionId: getSessionId() };
+      store.upsert(plan);
+      startRun(plan);
+      location.hash = "#/plan/" + id;
+    };
+  }
+
+  function startRun(plan) {
+    const startedAt = Date.now();
+    const promise = fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json", "X-Session-Id": getSessionId() }, body: JSON.stringify(Object.assign({}, plan.prefs, { sessionId: getSessionId() })) })
+      .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        plan.status = res.ok ? "done" : "failed";
+        plan.data = data; plan.httpStatus = res.status;
+        /* 回填 MySQL 记录 ID：删除按钮才能真删后端，同步时也能识别已删记录 */
+        if (data && data.planRecordId) plan.planRecordId = data.planRecordId;
+      })
+      .catch(() => { plan.status = "failed"; plan.data = { errorMessage: "无法连接后端服务" }; plan.httpStatus = 0; })
+      .finally(() => { plan.durationMs = Date.now() - startedAt; store.upsert(plan); runs.delete(plan.id); if (location.hash === "#/plan/" + plan.id) viewPlan(plan.id); });
+    runs.set(plan.id, { promise, startedAt });
+  }
+
+  /* ================= 行程列表 ================= */
+  let plansFilter = "all"; // 会话筛选："all" 或具体 sessionId
+  window.setPlansFilter = s => { plansFilter = s; viewPlans(); };
+  function viewPlans() {
+    const all = store.all();
+    const sessions = [...new Set(all.map(p => p.sessionId || "unknown"))];
+    if (plansFilter !== "all" && !sessions.includes(plansFilter)) plansFilter = "all";
+    const list = plansFilter === "all" ? all : all.filter(p => (p.sessionId || "unknown") === plansFilter);
+    const srcBadge = s => `<span class="tag">${s === "chat" ? "对话" : "表单"}</span>`;
+    $app.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div class="pagetitle">行程规划</div><div class="pagesub">全部会话的规划记录（切换会话不再丢失），点击进入详情查看执行过程、行程单与预算测算。</div></div>
+        <a class="btn primary" href="#/prefer">＋ 发起新规划</a>
+      </div>
+      <div class="card">
+        ${all.length === 0 ? `<div class="empty">还没有规划记录，去「手动规划」填偏好发起，或到「对话规划」聊着来</div>` : `
+        <div class="tags" style="margin-bottom:14px">${["all", ...sessions].map(s =>
+          `<span class="tag ${plansFilter === s ? "g" : ""}" style="cursor:pointer" onclick="setPlansFilter('${esc(s)}')">${s === "all" ? "全部会话" : "会话 " + esc(String(s).slice(0, 8))}</span>`).join("")}</div>
+        <table class="tbl"><thead><tr><th>行程</th><th>状态</th><th>目的地</th><th>出行日期</th><th>预算</th><th>总费用</th><th>耗时</th><th></th></tr></thead><tbody>
+        ${list.map(p => {
+          const d = p.data || {}, dest = d.selectedDestination, bb = d.budgetBreakdown;
+          return `<tr>
+            <td><a href="#/plan/${p.id}">${esc(planTitle(p))}</a> ${srcBadge(p.source)}<span class="muted" style="font-size:11px">${esc(String(p.sessionId || "").slice(0, 8))}</span></td>
+            <td>${statusBadge(p)}</td>
+            <td>${dest ? esc(dest.city) : "—"}</td>
+            <td class="mono">${esc(p.prefs.startDate)}</td>
+            <td>${fmt(p.prefs.budget)}</td>
+            <td>${bb ? `<b style="color:${bb.withinBudget ? "var(--green)" : "var(--red)"}">${fmt(bb.total)}</b>` : "—"}</td>
+            <td class="mono">${p.durationMs ? (p.durationMs / 1000).toFixed(0) + "s" : "—"}</td>
+            <td><a href="#/plan/${p.id}">详情</a>${p.status !== "running" ? ` <a href="javascript:void(0)" class="delplan" data-id="${p.id}" style="color:var(--red,#c0392b)">删除</a>` : ""}</td></tr>`;
+        }).join("")}</tbody></table>`}
+      </div>`;
+    $app.querySelectorAll(".delplan").forEach(a => a.onclick = () => delPlan(a.dataset.id));
+  }
+  /* 删除行程：MySQL 记录一并删除（无 planRecordId 的进行中记录仅本地移除） */
+  async function delPlan(localId) {
+    const plan = store.get(localId);
+    if (!plan) return;
+    if (plan.status === "running") { alert("该规划正在执行中，暂不能删除"); return; }
+    if (!confirm("删除行程「" + planTitle(plan) + "」？\nMySQL 中的对应记录将一并删除，不可恢复。")) return;
+    if (plan.planRecordId) {
+      try {
+        const res = await fetch("/api/plans/" + plan.planRecordId, { method: "DELETE" });
+        if (!res.ok && res.status !== 404) { alert("删除失败（后端返回 " + res.status + "）"); return; }
+      } catch (e) { alert("删除失败：后端不可达"); return; }
+    }
+    store.save(store.all().filter(p => p.id !== localId));
+    viewPlans();
+  }
+  function planTitle(p) {
+    const d = p.data || {};
+    return `${p.prefs.departureCity} → ${d.selectedDestination ? d.selectedDestination.city + " " : ""}${STYLE_CN[p.prefs.style] || ""}游`;
+  }
+  function statusBadge(p) {
+    if (p.status === "running") return `<span class="badge blue">规划中</span>`;
+    if (p.status === "failed" || p.data?.planningState === "FAILED") return `<span class="badge red">已失败</span>`;
+    return `<span class="badge green">已完成</span>`;
+  }
+
+  /* ================= 行程详情 ================= */
+  function viewPlan(id) {
+    const plan = store.get(id);
+    if (!plan) { $app.innerHTML = `<div class="card"><div class="empty">记录不存在</div></div>`; return; }
+    /* 服务端历史记录：详情大字段懒加载（首次打开时拉取完整 TravelPlanState） */
+    if (!plan.data && plan.resultJsonId && plan.status !== "running") {
+      fetch("/api/plans/" + plan.resultJsonId).then(r => r.json()).then(rec => {
+        try { plan.data = JSON.parse(rec.resultJson || "{}"); } catch (e) { plan.data = {}; }
+        store.upsert(plan); viewPlan(id);
+      }).catch(() => {});
+    }
+    const running = plan.status === "running";
+    const d = plan.data || {}, dest = d.selectedDestination;
+    const failed = plan.status === "failed" || d.planningState === "FAILED";
+    const tab = plan._tab || (running ? "exec" : "single");
+    const days = Math.max(1, Math.round((new Date(plan.prefs.endDate) - new Date(plan.prefs.startDate)) / 86400000));
+
+    $app.innerHTML = `
+      <div class="pagetitle">${esc(planTitle(plan))}
+        ${running ? `<span class="badge blue">规划中</span>` : failed ? `<span class="badge red">已失败</span>` : `<span class="badge green">已完成</span>`}
+        <span class="badge gray">第 ${(d.adjustmentRound ?? 0) + 1} 版 / 共 3 版</span>
+      </div>
+      <div class="pagesub">${esc(plan.prefs.departureCity)}出发 → ${dest ? esc(dest.city) + "，" : ""}${esc(plan.prefs.startDate)} 至 ${esc(plan.prefs.endDate)}，共 ${days} 天、${plan.prefs.travelers} 人，预算上限 ${fmt(plan.prefs.budget)} 元</div>
+      <div style="margin-bottom:14px">
+        <button class="btn" onclick="location.reload()">刷新</button>
+        <a class="btn" href="#/plans">返回行程列表</a>
+      </div>
+      <div class="tabs">
+        <a href="#/plan/${id}" onclick="switchTab('${id}','exec');return false" class="${tab === "exec" ? "active" : ""}">执行过程</a>
+        <a href="#/plan/${id}" onclick="switchTab('${id}','single');return false" class="${tab === "single" ? "active" : ""}">行程单</a>
+        <a href="#/plan/${id}" onclick="switchTab('${id}','budget');return false" class="${tab === "budget" ? "active" : ""}">预算测算</a>
+      </div>
+      <div class="tabbody" id="tabBody"></div>`;
+
+    const body = document.getElementById("tabBody");
+    if (running) {
+      body.innerHTML = execRunningHtml(plan);
+      const t0 = new Date(plan.createdAt).getTime();
+      const marks = [2000, 15000, 45000];
+      window._runTimer = setInterval(() => {
+        const elapsed = (Date.now() - t0) / 1000;
+        const elapsedEl = document.getElementById("runElapsed");
+        if (elapsedEl) elapsedEl.textContent = Math.floor(elapsed) + "s";
+        const stage = marks.filter(x => Date.now() - t0 >= x).length;
+        document.querySelectorAll("#runSteps .step").forEach((row, i) => {
+          row.className = "step " + (i < stage ? "done" : i === stage ? "run" : "wait");
+          row.querySelector(".idx").textContent = i < stage ? "✓" : String(i + 1).padStart(2, "0");
+        });
+      }, 800);
+    }
+    else if (failed) { body.innerHTML = failHtml(plan); }
+    else if (tab === "exec") { body.innerHTML = execDoneHtml(plan); }
+    else if (tab === "budget") { body.innerHTML = budgetHtml(plan); }
+    else { body.innerHTML = singleHtml(plan); }
+  }
+  window.switchTab = (id, t) => { const p = store.get(id); p._tab = t; store.upsert(p); viewPlan(id); };
+
+  /* 运行编号：本地记录 id 形如 P<ts>，服务端记录形如 srv-<dbId> */
+  function runNo(plan) {
+    return "TR" + String(plan.id || "").replace(/^srv-|^[pP]/, "");
+  }
+
+  /* ---- 执行过程：运行中 ---- */
+  function execRunningHtml(plan) {
+    const steps = [
+      { n: "01", name: "PreferenceAgent · 偏好校验与补全", desc: "卫语句校验，缺省兴趣按风格补全" },
+      { n: "02", name: "DestinationAgent · RAG 检索 + LLM 甄选目的地", desc: "bge-m3 向量检索候选城市 → LLM 白名单内选择" },
+      { n: "03", name: "FlightAgent / HotelAgent / ActivityAgent · 三路并行", desc: "CompletableFuture.allOf 并发检索" },
+      { n: "04", name: "BudgetAgent · 预算评估与闭环", desc: "超支自动降级重试，最多 3 轮" }
+    ];
+    return `
+      <div class="card-title"><b>本次运行</b><span>运行编号 ${runNo(plan)}</span></div>
+      <table class="tbl kv mb10">
+        <tr><td>运行编号</td><td class="mono">${runNo(plan)}</td><td>运行状态</td><td><span class="badge blue">规划中</span></td></tr>
+        <tr><td>开始时间</td><td class="mono">${new Date(plan.createdAt).toLocaleString("zh-CN")}</td><td>已耗时</td><td class="mono" id="runElapsed">0s</td></tr>
+      </table>
+      <div class="card-title mt0"><b>智能体流水线</b><span>灰色=等待，蓝色闪烁=执行中，绿色=完成</span></div>
+      <div id="runSteps">${steps.map((s, i) => `
+        <div class="step ${i === 0 ? "run" : "wait"}" data-i="${i}">
+          <span class="idx">${s.n}</span>
+          <div style="flex:1"><b>${s.name}</b><div class="sd">${s.desc}</div></div>
+        </div>`).join("")}</div>
+      <div class="banner gray" style="margin-top:14px">规划需要真实调用 LLM（40~150 秒），页面刷新会中断本次运行。想实时看每个智能体的执行轨迹？去「对话规划」页发一句话触发规划即可。</div>`;
+  }
+
+  function failHtml(plan) {
+    const d = plan.data || {};
+    const status4 = plan.httpStatus;
+    return `
+      <div class="banner ${status4 === 400 ? "gray" : "gray"}" style="margin-bottom:14px">HTTP ${status4 || "—"} · ${status4 === 400 ? "输入校验未通过" : status4 === 502 ? "上游 LLM 调用失败" : "请求未完成"}</div>
+      <div class="card"><div class="card-title"><b>失败原因</b></div>
+      <p style="color:var(--ink2)">${esc(d.errorMessage || d.error || "未知错误")}</p>
+      <p class="hint" style="margin-top:10px">400 = 回到「对话规划」调整需求后重新发起；502 = 稍后重试，或到管理端「系统状态」检查 LLM 配置。</p></div>`;
+  }
+
+  /* ---- 执行过程：完成 ---- */
+  function execDoneHtml(plan) {
+    const d = plan.data || {}, dest = d.selectedDestination || {}, bb = d.budgetBreakdown || {}, fr = d.flightSearchResult || {}, hr = d.hotelSearchResult || {};
+    const rounds = (d.adjustmentRound ?? 0) + 1;
+    const destCand = (dest.highlights || []).slice(0, 4).join("、");
+    const summary = `本次规划共执行 ${rounds} 轮。RAG 检索按兴趣缩小候选城市后，LLM 甄选目的地「${dest.city}」（${esc(d.selectionReason || "—")}）。
+航班推荐 ${fr.recommended ? esc(fr.recommended.flightNo) : "—"}（${fr.recommended ? fmt(fr.recommended.price) + "/人单程" : "—"}），酒店推荐 ${hr.recommended ? esc(hr.recommended.name) : "—"}（${hr.recommended ? fmt(hr.recommended.pricePerNight) + "/晚" : "—"}），
+活动覆盖 ${(d.activitySearchResult?.dayPlans || []).length} 天合计 ${fmt(bb.activityCost)}。总费用 ${fmt(bb.total)}，预算 ${fmt(bb.budget)}，${bb.withinBudget ? "在预算内，未触发后续降级" : "已超支，已生成调整建议供人工决策"}。`;
+    const steps = [
+      { n: "01", name: "PreferenceAgent · 偏好校验与补全", out: "输入合法，兴趣与风格已对齐" },
+      { n: "02", name: "DestinationAgent · RAG 检索 + LLM 甄选", out: `目的地「${esc(dest.city)}」— ${esc(d.selectionReason || "—")}` },
+      { n: "03", name: "三路并行检索", out: `航班候选 ${(fr.flights || []).length} 个 · 酒店候选 ${(hr.hotels || []).length} 家 · 行程 ${(d.activitySearchResult?.dayPlans || []).length} 天` },
+      { n: "04", name: `BudgetAgent · 预算闭环（${rounds} 轮）`, out: `总费用 ${fmt(bb.total)} / 预算 ${fmt(bb.budget)}，${bb.withinBudget ? "一轮通过" : d.adjustmentRound > 0 ? `经 ${d.adjustmentRound} 轮降级` : "未在预算内"}；压力等级 L${d.budgetPressureLevel ?? 0}` }
+    ];
+    /* 真实执行轨迹（落库回放）：同一步骤 RUNNING→DONE 多帧按 id 去重保留最终状态；无则回退摘要步骤 */
+    const rawEvents = (d.trace && d.trace.events) ? d.trace.events : [];
+    const byId = new Map();
+    for (const ev of rawEvents) byId.set(ev.id, ev);
+    const realEvents = Array.from(byId.values());
+    /* 服务端记录没有 durationMs/createdAt 元数据时，从轨迹事件回填总耗时与开始时间 */
+    const pipelineDone = realEvents.find(e => e.id === "pipeline" && e.status === "DONE");
+    const totalMs = plan.durationMs || (pipelineDone ? pipelineDone.durationMs : 0) || 0;
+    const startedAt = rawEvents.length ? rawEvents[0].ts : plan.createdAt;
+    const stepsHtml = realEvents.length
+      ? realEvents.map(ev => {
+          const ok = ev.status === "DONE", bad = ev.status === "FAILED";
+          const ico = bad ? "✕" : ok ? "✓" : "•";
+          const dur = ev.durationMs ? ` · ${(ev.durationMs / 1000).toFixed(1)}s` : "";
+          const rnd = ev.round > 0 ? `（第 ${ev.round + 1} 轮）` : "";
+          return `<div class="step ${bad ? "failed" : ok ? "done" : "wait"}"><span class="idx">${ico}</span>
+            <div style="flex:1"><b>${esc(ev.name || "")}${rnd}</b><div class="out">${esc(ev.detail || "")}${dur}</div></div></div>`;
+        }).join("")
+      : steps.map(s => `<div class="step done"><span class="idx">✓</span><div style="flex:1"><b>${s.name}</b><div class="out">${s.out}</div></div></div>`).join("");
+    return `
+      <div class="card-title"><b>本次运行</b></div>
+      <table class="tbl kv mb10">
+        <tr><td>运行编号</td><td class="mono">${runNo(plan)}</td><td>运行状态</td><td><span class="badge green">已完成</span></td></tr>
+        <tr><td>开始时间</td><td class="mono">${startedAt ? new Date(startedAt).toLocaleString("zh-CN") : "—"}</td><td>总耗时</td><td class="mono">${(totalMs / 1000).toFixed(1)} 秒</td></tr>
+        <tr><td>轮次</td><td>第 1 轮 / 共 ${rounds} 轮</td><td>预算压力</td><td>L${d.budgetPressureLevel ?? 0}（0=舒适，2=省钱）</td></tr>
+      </table>
+      <div class="card-title mt0"><b>候选池收敛线索</b><span>RAG 与净化器把无限候选收敛为可交付方案</span></div>
+      <div class="stats mb10" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><small>目的地候选</small><b>${"10"} → 6</b><div class="foot">城市知识库语义检索 Top-6，LLM 只在其中选择</div></div>
+        <div class="stat"><small>酒店候选</small><b>${(hr.hotels || []).length} → 1</b><div class="foot">LLM 生成多档位，净化器过滤非法项后择优</div></div>
+        <div class="stat"><small>活动池</small><b>知识库 → ${(d.activitySearchResult?.dayPlans || []).reduce((s, x) => s + (x.activities || []).length, 0)} 项</b><div class="foot">真实景点池编排到 ${(d.activitySearchResult?.dayPlans || []).length} 天</div></div>
+      </div>
+      <div class="card-title mt0"><b>智能体流水线</b><span>${realEvents ? "真实执行轨迹（逐步录制）" : "按结果反推"}</span></div>
+      ${stepsHtml}
+      <div class="card-title mt0"><b>运行摘要</b></div>
+      <p style="color:var(--ink2);font-size:13.5px">${summary}</p>`;
+  }
+
+  /* ---- 行程单 ---- */
+  function singleHtml(plan) {
+    const d = plan.data || {}, dest = d.selectedDestination || {}, fr = d.flightSearchResult || {}, hr = d.hotelSearchResult || {}, ar = d.activitySearchResult || {}, bb = d.budgetBreakdown || {};
+    const days = Math.max(1, Math.round((new Date(plan.prefs.endDate) - new Date(plan.prefs.startDate)) / 86400000));
+    return `
+      <div class="card-title"><b>行程概览</b></div>
+      <table class="tbl kv mb10">
+        <tr><td>出发城市</td><td>${esc(plan.prefs.departureCity)}</td><td>目的地</td><td><b>${esc(dest.city)}</b>（${esc(dest.province || "中国")}）</td><td>出行日期</td><td class="mono">${esc(plan.prefs.startDate)} 至 ${esc(plan.prefs.endDate)}</td></tr>
+        <tr><td>出行人数</td><td>${plan.prefs.travelers} 人</td><td>预算上限</td><td>${fmt(plan.prefs.budget)}</td><td>旅行风格</td><td>${STYLE_CN[plan.prefs.style] || "—"}</td></tr>
+        <tr><td>行程天数</td><td>${days} 天</td><td>行程明细</td><td>${(ar.dayPlans || []).reduce((s, x) => s + (x.activities || []).length, 0)} 项活动</td><td>安全指数</td><td>${dest.safetyScore ?? "—"} / 10</td></tr>
+      </table>
+      <div class="card-title mt0"><b>目的地</b><span>RAG 检索 + LLM 甄选</span></div>
+      <div style="margin-bottom:16px">
+        <div class="dest-head"><span class="dest-city">${esc(dest.city)}</span><span class="muted">${esc(dest.description || "")}</span></div>
+        <div class="quote">“${esc(d.selectionReason || "—")}”</div>
+        <div class="tags">${(dest.highlights || []).map(h => `<span class="tag">${esc(h)}</span>`).join("")}<span class="tag g">安全指数 ${dest.safetyScore ?? "—"}</span></div>
+      </div>
+      <div class="card-title mt0"><b>航班</b><span>并行检索 · 单程每人</span></div>
+      ${(fr.flights || []).map(f => `
+        <div class="rec" style="${f.flightNo === fr.recommended?.flightNo ? "" : "border-left-color:var(--line);background:#fff"}">
+          <div><span class="nm">${esc(f.flightNo)} · ${esc(f.airline)}</span>${f.flightNo === fr.recommended?.flightNo ? `<span class="ribbon">推荐</span>` : ""}</div>
+          <div class="mt"><span>⏱ ${esc(hours(f.duration))}</span><span>${f.stops ? "经停 " + f.stops + " 次" : "直飞"}</span></div>
+          <div class="pr"><b>${fmt(f.price)}</b><small>单程 / 人</small></div>
+        </div>`).join("")}
+      ${fr.recommended ? `<div class="right muted" style="margin-bottom:16px">推荐 ${esc(fr.recommended.flightNo)} · 往返 × 人数合计 <b style="color:var(--blue)">${fmt(fr.totalCost)}</b></div>` : ""}
+      <div class="card-title mt0"><b>酒店</b><span>并行检索 · 每晚每间</span></div>
+      ${(hr.hotels || []).map(h => `
+        <div class="rec" style="${h.name === hr.recommended?.name ? "" : "border-left-color:var(--line);background:#fff"}">
+          <div><span class="nm">${esc(h.name)}</span>${h.name === hr.recommended?.name ? `<span class="ribbon">推荐</span>` : ""}</div>
+          <div class="mt"><span style="color:var(--gold)">${"★".repeat(h.starRating || 0)}<span style="color:#d9d0bc">${"★".repeat(Math.max(0, 5 - (h.starRating || 0)))}</span></span>${(h.amenities || []).slice(0, 4).map(a => `<span>${esc(a)}</span>`).join("")}</div>
+          <div class="pr"><b>${fmt(h.pricePerNight)}</b><small>每晚 / 间</small></div>
+        </div>`).join("")}
+      ${hr.recommended ? `<div class="right muted" style="margin-bottom:16px">推荐 ${esc(hr.recommended.name)} · 全程合计 <b style="color:var(--blue)">${fmt(hr.totalCost)}</b></div>` : ""}
+      <div class="card-title mt0"><b>逐日行程</b><span>知识库真实景点 · LLM 编排</span></div>
+      ${(ar.dayPlans || []).map(day => `
+        <div class="day">
+          <div class="day-h">${esc(day.date)}<small>当日 ${fmt(day.dayCost)}</small></div>
+          ${(day.activities || []).map(a => `
+            <div class="act">
+              <span class="slot ${slotClass(a.timeSlot)}">${esc(a.timeSlot || "")}</span>
+              <b>${esc(a.name)}</b><span class="cat">${esc(a.category || "")} · ${esc(a.duration || "")}</span>
+              <span class="price ${Number(a.price) === 0 ? "free" : ""}">${Number(a.price) === 0 ? "免费" : fmt(a.price) + " / 人"}</span>
+            </div>`).join("")}
+        </div>`).join("")}`;
+  }
+  const slotClass = s => s === "上午" ? "am" : s === "下午" ? "pm" : s === "晚间" ? "ev" : "";
+
+  /* ---- 预算测算 ---- */
+  function budgetHtml(plan) {
+    const d = plan.data || {}, bb = d.budgetBreakdown || {};
+    const diff = (bb.budget || 0) - (bb.total || 0);
+    const per = (bb.total || 0) / Math.max(1, plan.prefs.travelers);
+    const cats = [
+      { name: "交通", v: bb.flightCost, note: "推荐航班往返 × 人数" },
+      { name: "住宿", v: bb.hotelCost, note: "推荐酒店 × 晚数 × 间数" },
+      { name: "活动", v: bb.activityCost, note: `${(d.activitySearchResult?.dayPlans || []).length} 天全部活动` }
+    ];
+    const maxCat = Math.max(...cats.map(c => c.v || 0), 1);
+    return `
+      <div style="margin-bottom:14px"><span class="badge ${bb.withinBudget ? "green" : "red"}">${bb.withinBudget ? "在预算内" : "已超支"}</span>
+      <span class="badge gray">最终版第 ${(d.adjustmentRound ?? 0) + 1} 版 / 共 3 版</span></div>
+      <div class="card-title"><b>预算对比</b></div>
+      <div class="stats mb10">
+        <div class="stat"><small>预算上限</small><b>${(bb.budget || 0).toLocaleString()}</b><em>元</em></div>
+        <div class="stat"><small>明细合计</small><b class="blue">${(bb.total || 0).toLocaleString()}</b><em>元</em><div class="foot">三项全部由代码精确汇总</div></div>
+        <div class="stat"><small>${diff >= 0 ? "与预算的差额（结余）" : "超出预算"}</small><b class="${diff >= 0 ? "green" : "red"}">${Math.abs(diff).toLocaleString()}</b><em>元</em><div class="foot">${diff >= 0 ? "花费未超过预算上限" : "已达最大降级轮次"}</div></div>
+        <div class="stat"><small>人均花费</small><b>${Math.round(per).toLocaleString()}</b><em>元</em><div class="foot">${plan.prefs.travelers} 人 · ${Math.max(1, Math.round((new Date(plan.prefs.endDate) - new Date(plan.prefs.startDate)) / 86400000))} 天行程</div></div>
+      </div>
+      <div class="card-title"><b>三类花费</b><span>明细按门类累计，蓝色条为占比</span></div>
+      <table class="tbl mb10">
+        <thead><tr><th>类别</th><th>金额</th><th style="width:45%">占比</th><th>明细</th></tr></thead>
+        <tbody>${cats.map(c => {
+          const pct = bb.total ? Math.round((c.v || 0) / bb.total * 1000) / 10 : 0;
+          return `<tr><td><b>${c.name}</b></td><td class="mono">${fmt(c.v)}</td>
+            <td><div style="display:flex;align-items:center;gap:10px"><div class="bar ${bb.withinBudget ? "" : "over"}" style="flex:1"><i style="width:${pct}%"></i></div><span class="mono" style="font-size:12px;color:var(--ink3)">${pct}%</span></div></td>
+            <td class="muted" style="font-size:12px">${c.note}</td></tr>`;
+        }).join("")}</tbody>
+      </table>
+      ${(bb.suggestions || []).length ? `
+      <div class="card-title mt0"><b>调整建议</b><span>超支时由 LLM 生成，含量化方向</span></div>
+      <ul style="margin-left:20px;color:var(--ink2);font-size:13.5px">${bb.suggestions.map(s => `<li style="padding:3px 0">${esc(s)}</li>`).join("")}</ul>
+      <div class="hint" style="margin-top:8px">※ 经 ${d.adjustmentRound ?? 0} 轮预算降级重试（budgetPressureLevel=${d.budgetPressureLevel ?? 0}）` : `
+      <div class="banner green" style="margin-top:6px">首轮规划即在预算内，未触发降级循环。</div>`}`;
+  }
+
+  /* ================= 管理端 ================= */
+  const ICONS = {
+    pin: "M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11zm0-8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+    doc: "M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6",
+    hotel: "M4 21V4h16v17 M9 8h2m4 0h-2M9 12h2m4 0h-2 M12 21v-4",
+    chip: "M8 8h8v8H8z M5 5h3v3H5zM16 5h3v3h-3zM5 16h3v3H5zM16 16h3v3h-3z",
+    book: "M4 5a2 2 0 0 1 2-2h14v18H6a2 2 0 0 1-2-2zm2 12h14",
+    search: "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM21 21l-5-5",
+    gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z",
+    user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9a8 8 0 0 1 16 0",
+    chart: "M4 20V10m6 10V4m6 16v-7m4 7H2",
+    check: "M4 12l5 5L20 7"
+  };
+  const icon = (name, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[name]}"/></svg>`;
+
+  function adminShell(active, html) {
+    const item = (href, label, ic, lock) => lock
+      ? `<a class="lock">${icon(ic)}${label}<span style="margin-left:auto;font-size:10px">🔒</span></a>`
+      : `<a href="${href}" class="${active === href ? "active" : ""}">${icon(ic)}${label}</a>`;
+    $app.innerHTML = `
+      <div class="admin">
+        <aside class="side">
+          <a href="#/admin" class="${active === "#/admin" ? "active" : ""}" style="color:${active === "#/admin" ? "var(--green)" : "var(--ink2)"};font-weight:600">${icon("check")} 系统首页</a>
+          <div class="grp">平台管理</div>
+          ${item("#", "用户管理", "user", true)}
+          ${item("#", "运营统计看板", "chart", true)}
+          <div class="grp">AI 与知识库</div>
+          ${item("#/admin/knowledge", "城市知识库", "book")}
+          ${item("#/admin/status", "向量化与语义检索", "search")}
+          <div class="grp">运行与观测</div>
+          ${item("#/admin/status", "系统状态", "gear")}
+          ${item("#", "工具调用日志", "doc", true)}
+        </aside>
+        <main>${html}</main>
+      </div>`;
+  }
+
+  function viewAdminHome() {
+    const group = (title, sub, cards) => `
+      <div class="card-title"><b>${title}</b><span>${sub}</span></div>
+      <div class="cardgrid" style="margin-bottom:20px">${cards.map(c => c.href
+        ? `<a class="acard" href="${c.href}"><span class="ic">${icon(c.ic)}</span><b>${c.t}</b><p>${c.d}</p></a>`
+        : `<div class="acard lock"><span class="ic">${icon(c.ic)}</span><b>${c.t}</b><p>${c.d}</p><div class="locktip">🔒 暂未开放</div></div>`).join("")}</div>`;
+    adminShell("#/admin", `
+      <div class="pagetitle">AI 旅游行程智能规划平台 · 管理端</div>
+      <div class="pagesub">行程资源、AI 配置与知识库在这类卡片里单独维护；Agent 每次检索、每轮反馈都会留下过程记录。</div>
+      ${group("行程资源", "规划流程引用的基础资源与规则", [
+        { href: "#/admin/knowledge", ic: "pin", t: "目的地知识库", d: "中国城市知识库文档，RAG 候选城市与活动编排的数据源。" },
+        { ic: "pin", t: "旅游景点库管理", d: "景点档案、达标时长、开放时间与门票价格。" },
+        { ic: "hotel", t: "酒店管理", d: "酒店名单、房价与所在城市，住宿预算从这里选取。" },
+        { ic: "doc", t: "交通班次管理", d: "航班/班次的班次时刻与旅行行程，衔接智能排序。" },
+        { ic: "doc", t: "行程规则", d: "三档强度模板，决定一天排多满、车程加多少。" }
+      ])}
+      ${group("AI 与知识库", "模型接入、提示词与检索三类能力", [
+        { href: "#/admin/status", ic: "chip", t: "AI 模型配置", d: "对话模型与向量化模型的端点、密钥和用量。" },
+        { ic: "doc", t: "Prompt 模板管理", d: "排除、反悔、需求抽取三类提示词，按需取用。" },
+        { href: "#/admin/knowledge", ic: "book", t: "城市知识库", d: "知识库文档上传、解析与预览。" },
+        { href: "#/admin/status", ic: "search", t: "向量化与语义检索", d: "向量化入库、检索时按目的地等元数据召回。" }
+      ])}
+      ${group("运行与观测", "工具开关，运行监督与耗损维护", [
+        { href: "#/admin/status", ic: "gear", t: "系统状态", d: "健康检查、LLM/RAG 端点与模型摘要。" },
+        { ic: "doc", t: "工具调用日志", d: "每次工具调用的入参、返回与耗时逐条留痕。" },
+        { ic: "chart", t: "运营统计看板", d: "AI 费用、Agent 运行、工具调用与校验的汇总。" },
+        { ic: "user", t: "用户管理", d: "账号、角色与登录密码的维护入口。" }
+      ])}`);
+  }
+
+  async function viewAdminKnowledge() {
+    adminShell("#/admin/knowledge", `<div class="card"><div class="empty">加载中…</div></div>`);
+    let res;
+    try { res = await fetch("/api/knowledge/cities"); res = await res.json(); }
+    catch { adminShell("#/admin/knowledge", `<div class="banner gray">无法连接后端服务</div>`); return; }
+    adminShell("#/admin/knowledge", `
+      <div class="pagetitle">城市知识库</div>
+      <div class="pagesub">RAG 的知识供给层：新增城市只需在 knowledge 目录加一篇 Markdown，重启即生效。</div>
+      <div class="banner ${res.ragEnabled ? "green" : "gray"}">${res.ragEnabled
+        ? `语义检索已启用 · 向量化模型 ${esc(res.embeddingModel)} · ${res.total} 个城市已入库`
+        : `语义检索降级中（向量化服务不可用），候选为全量 ${res.total} 城 · 模型 ${esc(res.embeddingModel)}`}</div>
+      ${(res.cities || []).map(c => `
+        <div class="card">
+          <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+            <b style="font-size:17px">${esc(c.city)}</b><span class="muted">${esc(c.province)}</span>
+            <span class="tag g">安全指数 ${c.safetyScore}</span><span class="tag">建议 ${esc(c.suggestedDays || "—")}</span>
+          </div>
+          <div style="color:var(--ink2);font-size:13px;margin-top:6px">${esc(c.positioning)}</div>
+          <div class="mt"><span class="muted" style="font-size:12px">最佳季节：${esc(c.seasons || "—")}　消费水平：${esc(c.consumption || "—")}</span></div>
+          <div class="tags">${(c.highlights || []).slice(0, 6).map(h => `<span class="tag">${esc(h)}</span>`).join("")}</div>
+          <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--blue);font-size:13px">经典活动与体验（${(c.activities || []).length} 项）</summary>
+            <ul style="margin:8px 0 0 20px;color:var(--ink2);font-size:13px">${(c.activities || []).map(a => `<li style="padding:2px 0">${esc(a)}</li>`).join("")}</ul></details>
+        </div>`).join("")}`);
+  }
+
+  async function viewAdminStatus() {
+    adminShell("#/admin/status", `<div class="card"><div class="empty">加载中…</div></div>`);
+    let health, sys;
+    try {
+      health = await (await fetch("/api/health")).json();
+      sys = await (await fetch("/api/system/status")).json();
+    } catch { adminShell("#/admin/status", `<div class="banner gray">无法连接后端服务</div>`); return; }
+    adminShell("#/admin/status", `
+      <div class="pagetitle">系统状态</div>
+      <div class="pagesub">运行与观测：只暴露端点与模型名，不含任何密钥。</div>
+      <div class="banner green">服务状态：${esc(health.status)} · ${esc(health.service)} · 采样时间 ${esc(sys.timestamp)}</div>
+      <div class="card">
+        <div class="card-title"><b>对话模型（LLM）</b><span>五智能体的推理引擎</span></div>
+        <table class="tbl kv">
+          <tr><td>端点</td><td class="mono">${esc(sys.llm.baseUrl)}</td></tr>
+          <tr><td>模型</td><td class="mono">${esc(sys.llm.model)}</td></tr>
+          <tr><td>单次超时</td><td>${sys.llm.timeoutSeconds} 秒</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title"><b>向量化（RAG）</b><span>城市知识库语义检索</span></div>
+        <table class="tbl kv">
+          <tr><td>端点</td><td class="mono">${esc(sys.rag.embeddingBaseUrl)}</td></tr>
+          <tr><td>模型</td><td class="mono">${esc(sys.rag.embeddingModel)}</td></tr>
+        </table>
+      </div>`);
+  }
+
+  router();
+})();
+</script>
+</body>
+</html>
