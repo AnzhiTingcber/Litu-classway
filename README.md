@@ -43,7 +43,7 @@
 
 ## 🏗️ 架构
 
-```mermaid
+
 flowchart LR
     U[用户<br/>表单 / 对话] -->|@Tool planTravel| P[TravelPlanningPipeline]
     subgraph SEQ [顺序阶段]
@@ -58,7 +58,7 @@ flowchart LR
     end
     BA --> DB[(MySQL<br/>plan_record + 轨迹)]
     BA -->|SSE| U
-```
+
 
 | Agent | 调用 LLM | 职责与防护 |
 |---|---|---|
