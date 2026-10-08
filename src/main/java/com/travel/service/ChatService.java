@@ -9,6 +9,8 @@ import com.travel.store.MongoChatMemoryStore;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 
@@ -25,6 +28,8 @@ import reactor.core.publisher.Flux;
  */
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final TravelChatAssistant assistant;
     private final MongoChatMemoryStore memoryStore;
@@ -59,14 +64,29 @@ public class ChatService {
     public Flux<ServerSentEvent<String>> chatStream(String sessionId, String message) {
         String sid = sessionId.trim();
         return Flux.create(emitter -> {
+            // 延迟打点：订阅瞬间 = 开始调用大模型；首个 token 事件 = 首字到达
+            long start = System.currentTimeMillis();
+            AtomicLong firstTokenAt = new AtomicLong();
             Runnable unregisterTrace = tracePublisher.register(sid,
                     event -> emitter.next(ServerSentEvent.<String>builder(toJson(event)).event("trace").build()));
             Disposable tokenSubscription = assistant.chat(sid, message, currentDate()).subscribe(
-                    token -> emitter.next(ServerSentEvent.<String>builder(token).event("token").build()),
-                    emitter::error,
+                    token -> {
+                        firstTokenAt.compareAndSet(0, System.currentTimeMillis());
+                        emitter.next(ServerSentEvent.<String>builder(token).event("token").build());
+                    },
+                    error -> {
+                        log.warn("SSE 响应异常: 会话={}，已等待 {} ms（首Token {} ms）: {}",
+                                sid, System.currentTimeMillis() - start,
+                                firstTokenAt.get() == 0 ? -1 : firstTokenAt.get() - start, error.toString());
+                        emitter.error(error);
+                    },
                     () -> {
                         emitter.next(ServerSentEvent.<String>builder("").event("done").build());
                         emitter.complete();
+                        log.info("SSE 响应耗时: 会话={}，首Token {} ms，端到端 {} ms",
+                                sid,
+                                firstTokenAt.get() == 0 ? -1 : firstTokenAt.get() - start,
+                                System.currentTimeMillis() - start);
                     });
             emitter.onDispose(() -> {
                 unregisterTrace.run();

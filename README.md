@@ -34,7 +34,7 @@
 ## ✨ 功能特性
 
 - 🧭 **多智能体规划流水线**：偏好校验 → RAG+LLM 甄选目的地 → 航班/酒店/活动三路并行 → 预算评估闭环，LLM 只做语义生成，金额/日期/流程控制全部由确定性代码完成
-- 🌆 **RAG 城市知识库**：10 个中国城市 Markdown 知识库，Pinecone 持久化向量检索（bge-m3），入库幂等，Embedding 不可用时自动降级，扩城市只加文档不改代码
+- 🌆 **RAG 城市知识库**：35 个中国城市 Markdown 知识库，Pinecone 持久化向量检索（bge-m3），入库幂等，Embedding 不可用时自动降级，扩城市只加文档不改代码
 - 💬 **对话式规划**：SSE 流式对话 + 会话记忆持久化（MongoDB），LLM 通过 Function Calling 自主决定何时触发规划流水线
 - 📊 **执行轨迹可视化**：每个智能体的开始/完成/失败、RAG 检索子步骤、预算每轮闭环全部记录并实时推送，历史规划可回放真实轨迹
 - 🔌 **MCP 客户端**：接入外部 MCP server（默认内置 Open-Meteo 天气 + 官方演示 server），对话中可查实时天气，工具与本地 `@Tool` 并列按需调用
@@ -128,7 +128,7 @@ mvn spring-boot:run
 mvn test
 ```
 
-5 个用例（健康检查 / 输入校验 400 / LLM 不可达 502 收敛 / 知识库 / 系统状态），使用假 Key + 不可达端点，不产生真实费用，可在 CI 直接运行。
+5 个用例（健康检查 / 输入校验 400 / LLM 不可达 502 收敛 / 知识库 / 系统状态），使用假 Key + 不可达端点，不产生真实费用，可在 CI 直接运行。另有手动向量入库测试 `CityKnowledgeBaseIngestTest`：默认跳过，运行时设环境变量 `RAG_INGEST=true` 才执行，真实调用 SiliconFlow + Pinecone 完成 35 城全量入库与 200 题口语化检索评测（评测集在 test/resources/eval/，打印分块数、命中率与逐条耗时），CI 不受影响。另有行程生成成功率评测 `TravelPlanningSuccessRateTest`：默认跳过，设环境变量 `PLAN_EVAL=true` 才执行，20 组多样化真实输入（预算 2500~30000、5 种风格、1~6 人）串行跑完整多智能体流水线，按「闭环且预算未超支」口径统计成功率，规划记录以 eval-xx 会话落库可在历史页回看，约 15~50 分钟并产生真实 token 费用。另有 SSE 对话延迟评测 `ChatLatencyEvalTest`：设 `CHAT_EVAL=true` 才执行，10 条纯聊天逐条测首 Token 延迟与端到端耗时（应用运行时每次对话在日志输出同口径耗时）。
 
 ## 🌆 RAG 城市知识库
 
@@ -201,7 +201,7 @@ src/main/java/com/travel
 ├── store/          # MongoDB 会话记忆
 └── tools/          # LLM 可调用工具（规划/查单/删单）
 src/main/resources
-├── knowledge/      # 10 个城市知识库 Markdown
+├── knowledge/      # 35 个城市知识库 Markdown
 └── static/         # GLASSWAY 单页前端（index.html）+ 旧版备用页
 ```
 

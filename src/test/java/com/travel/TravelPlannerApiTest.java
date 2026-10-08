@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -78,10 +79,10 @@ class TravelPlannerApiTest {
     }
 
     @Test
-    void knowledgeCitiesShouldReturnTenChineseCities() throws Exception {
+    void knowledgeCitiesShouldReturnFullChineseCityCatalog() throws Exception {
         mockMvc.perform(get("/api/knowledge/cities"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(10))
+                .andExpect(jsonPath("$.total", greaterThanOrEqualTo(30)))
                 .andExpect(jsonPath("$.cities[0].city").isNotEmpty())
                 .andExpect(jsonPath("$.cities[0].activities").isArray());
     }

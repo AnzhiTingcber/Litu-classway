@@ -134,7 +134,8 @@ public class CityKnowledgeBase {
      *     Pinecone 按 ID 覆盖写入，重复入库零新增向量；</li>
      *     <li><b>先向量化后写库</b>：Embedding 失败（欠费/断网）时中止于写库之前，
      *     云端存量数据保持完整，服务退化为全量候选；</li>
-     *     <li><b>清空重灌</b>：写入前 removeAll() 清空（travel-cities 索引专用于本知识库），
+     *     <li><b>清空重灌</b>：写入前 removeAll() 清空（travel-cities 索引专用于本知识库；
+     *     新建空索引尚无命名空间时清空自动跳过，upsert 自动建），
      *     文档收缩后遗留的过期分块一并清除，杜绝"新文档 + 旧碎片"并存。</li>
      * </ol>
      * 任何失败只禁用语义检索，不阻断服务（本地解析路径始终可用）。
@@ -150,7 +151,7 @@ public class CityKnowledgeBase {
             if (documents.isEmpty()) {
                 throw new IllegalStateException("类路径 " + KNOWLEDGE_DIR + " 下没有知识文档");
             }
-            DocumentSplitter splitter = DocumentSplitters.recursive(400, 40);
+            DocumentSplitter splitter = DocumentSplitters.recursive(300, 30);
             List<TextSegment> segments = new ArrayList<>();
             List<String> segmentIds = new ArrayList<>();
             for (Document document : documents) {
@@ -165,8 +166,14 @@ public class CityKnowledgeBase {
             }
             // 先向量化：失败则在此中止，不触碰向量库中的存量数据
             List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
-            // 清空重灌：确定性 ID + 全量覆盖，幂等且无过期碎片
-            embeddingStore.removeAll();
+            // 清空重灌：确定性 ID + 全量覆盖，幂等且无过期碎片。
+            // 空索引（新建/从未写入）没有默认命名空间，removeAll 会抛 NOT_FOUND——
+            // 这不是失败而是无事可做，跳过继续写库（upsert 会自动创建命名空间）
+            try {
+                embeddingStore.removeAll();
+            } catch (Exception e) {
+                log.info("向量库清空跳过（空索引尚无命名空间，不影响入库）: {}", BaseAgent.rootMessage(e));
+            }
             embeddingStore.addAll(segmentIds, embeddings, segments);
             vectorSearchAvailable = true;
             log.info("城市知识库向量入库完成：{} 个城市 / {} 个分块（确定性 ID 覆盖），向量库={}，语义检索已启用",
